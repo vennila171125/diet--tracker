@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Diet Tracker">
+<meta name="theme-color" content="#2f8f5b">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Diet Tracker</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);--bg:#f6f7f4;--card:#fff;--tx:#1c2420;--mut:#6b7770;--ac:#2f8f5b;--ac2:#e6f4ec;--bd:#e3e7e2;--warn:#d9822b}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121715;--card:#1b2220;--tx:#eef2ef;--mut:#93a09a;--ac:#4cc585;--ac2:#1f3a2c;--bd:#2a3330;--warn:#f0a050}}
+:root[data-theme="dark"]{--bg:#121715;--card:#1b2220;--tx:#eef2ef;--mut:#93a09a;--ac:#4cc585;--ac2:#1f3a2c;--bd:#2a3330;--warn:#f0a050}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif;padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+main{max-width:480px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:4px 0 2px}h2{font-size:14px;margin:0 0 10px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:16px;margin-bottom:14px}
+.row{display:flex;align-items:center;gap:12px}.sp{justify-content:space-between}
+.mut{color:var(--mut);font-size:13px}
+.nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.nav button{background:var(--card);border:1px solid var(--bd);color:var(--tx);border-radius:10px;width:40px;height:40px;font-size:18px}
+.meal{display:flex;gap:12px;align-items:center;padding:12px 4px;border-bottom:1px solid var(--bd);cursor:pointer}
+.meal:last-child{border:0}
+.chk{width:28px;height:28px;border-radius:50%;border:2px solid var(--bd);flex:none;display:grid;place-items:center;color:#fff;font-size:16px}
+.meal.on .chk{background:var(--ac);border-color:var(--ac)}
+.meal.on .nm{text-decoration:line-through;color:var(--mut)}
+.nm{font-weight:600}
+input[type=number],input[type=text],input[type=date]{width:100%;padding:11px 12px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx);font-size:16px}
+.btn{background:var(--ac);color:#fff;border:0;border-radius:10px;padding:11px 16px;font-size:16px;font-weight:600}
+.btn.alt{background:var(--ac2);color:var(--ac)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{background:var(--ac2);border-radius:12px;padding:12px}.stat b{display:block;font-size:22px}
+.bar{height:8px;background:var(--bd);border-radius:6px;overflow:hidden;margin-top:8px}.bar i{display:block;height:100%;background:var(--ac)}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--bd);display:flex;padding-bottom:env(safe-area-inset-bottom,0px)}
+nav.tabs button{flex:1;background:none;border:0;color:var(--mut);padding:9px 0 7px;font-size:11px}
+nav.tabs button span{display:block;font-size:20px}nav.tabs button.on{color:var(--ac);font-weight:700}
+.lab{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px}
+svg text{fill:var(--mut);font-size:9px}
+.tip{font-size:13px;color:var(--mut);margin-top:8px}
+.badge{display:inline-block;background:var(--ac2);color:var(--ac);border-radius:8px;padding:2px 8px;font-size:12px;font-weight:600}
+.pd{border-bottom:1px solid var(--bd);padding:10px 0;font-size:14px}.pd:last-child{border:0}.pd.cur{background:var(--ac2);border-radius:8px;padding:10px}
+.g{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--bd);cursor:pointer}.g.on{opacity:.45;text-decoration:line-through}
+ol,ul{padding-left:20px;margin:6px 0}li{margin-bottom:6px;font-size:14px}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<nav class="tabs" id="tabs"></nav>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script>
+var pad=function(n){return String(n).padStart(2,'0')};
+var iso=function(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())};
+var parse=function(s){var p=s.split('-');return new Date(+p[0],+p[1]-1,+p[2])};
+var addDays=function(s,n){var d=parse(s);d.setDate(d.getDate()+n);return iso(d)};
+var diff=function(a,b){return Math.round((parse(a)-parse(b))/864e5)};
+var esc=function(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})};
+var fd=function(s,o){return parse(s).toLocaleDateString(undefined,o)};
+var Z=function(v,n){var r=[],m=Math.max(v.length,n.length);for(var i=0;i<m;i++){if(v[i])r.push(v[i]);if(n[i])r.push(n[i])}return r};
+var P=function(a){return a.map(function(s){var p=s.split('|'),o={n:p[0],v:1,c:0,f:0,e:0,p:0,b:0};(p[1]?p[1].split(','):[]).forEach(function(x){if(x=='b')o.b=1;else if(x[0]=='p')o.p=+x.slice(1);else{o.v=0;o[x[0]]=+x.slice(1)}});return o})};
+var BV=['Idli ×3 + sambar + coconut chutney|b','Plain dosa ×2 + tomato chutney + sambar|b','Onion uthappam ×2 + sambar|b','Ragi dosa ×2 + mint chutney','Pesarattu ×2 + ginger chutney','Vegetable upma (1 bowl) + chutney','Ven pongal (1 bowl) + sambar','Rava idli ×3 + chutney','Veg uthappam ×2 + tomato chutney|b','Set dosa ×2 + veg kurma|b','Adai ×2 + onion chutney','Oats idli ×3 + sambar','Foxtail millet upma (1 bowl)','Mixed veg dosa ×2 + chutney|b'];
+var BN=['Egg dosa ×2 (2 eggs) + chutney|e2,b','Boiled eggs ×2 + idli ×2 + sambar|e2,b','Egg bhurji (2 eggs) + idli ×2|e2,b','Masala omelette (2 eggs) + dosa ×1|e2,b'];
+var MV=['Guava (1 medium)','Papaya (1 bowl)','Apple (1)','Orange (1)','Pomegranate (½ cup)','Watermelon (1 bowl)','Pear (1)','Cucumber + carrot sticks','Buttermilk (1 glass)','Tender coconut water (1)','Banana (1 small)','Muskmelon (1 bowl)'];
+var EV=['Roasted chana (small handful)','Peanut sundal (½ cup)','Chickpea sundal (½ cup)','Green gram sundal (½ cup)','Corn sundal (½ cup)','Lobia sundal (½ cup)','Sprouts salad (1 bowl)','Vegetable soup (1 bowl)','Cucumber-tomato salad','Ragi malt, unsweetened (1 glass)','Puffed rice chaat (1 bowl)'];
+var EN=['Boiled eggs ×2|e2','Chicken soup (1 bowl)|c50','Egg white omelette (3 whites)|e3'];
+var LV=['Brown rice (¾ cup) + sambar + cabbage poriyal + curd','Rice (¾ cup) + tomato rasam + beans poriyal + curd','Curd rice (1 bowl) + carrot-beans poriyal','Kodo millet rice + keerai kootu','Phulka ×2 + palak dal + cucumber salad','Rice (¾ cup) + veg kootu + beetroot poriyal','Ragi mudde ×1 + sambar + greens','Rice (¾ cup) + moong dal + snake gourd poriyal','Foxtail millet + sambar + carrot poriyal','Paneer bhurji (100 g) + phulka ×2 + salad|p100','Vegetable pulao (1 cup) + raita','Rice (¾ cup) + horse gram rasam + poriyal','Rice (¾ cup) + avial + sprout salad','Rice (¾ cup) + okra sambar + cabbage thoran'];
+var LN=['Chicken curry (150 g) + rice (¾ cup) + cabbage poriyal|c150','Fish curry (150 g) + rice (¾ cup) + beans poriyal|f150','Egg curry (2 eggs) + rice (¾ cup) + poriyal|e2','Chicken pepper fry (150 g) + chapati ×2 + cucumber|c150','Fish fry, shallow (150 g) + rasam rice|f150','Egg masala (2 eggs) + phulka ×2 + salad|e2','Chettinad chicken (150 g) + phulka ×2 + salad|c150','Prawn masala (150 g) + rice (¾ cup)|f150','Chicken sukka (150 g) + rice (¾ cup) + salad|c150','Sardine curry (150 g) + rice (¾ cup) + keerai|f150','Kerala egg roast (2 eggs) + chapati ×2|e2','Chicken kurma (150 g) + phulka ×2 + salad|c150'];
+var DV=['Phulka ×2 + mixed veg kurma','Phulka ×2 + dal tadka + salad','Vegetable soup + sprouts salad','Idli ×3 + sambar|b','Vegetable khichdi (1 bowl) + raita','Ragi roti ×2 + veg stew','Pesarattu ×2 + ginger chutney','Paneer tikka (100 g) + salad|p100','Phulka ×2 + vegetable sambar','Plain dosa ×2 + tomato chutney|b','Chapati ×2 + cabbage-carrot stir fry + curd','Methi chapati ×2 + dal','Moong dal soup + phulka ×2 + salad','Millet pongal (1 bowl) + chutney','Uthappam ×2 + sambar|b'];
+var DN=['Chicken soup (1 bowl) + phulka ×2|c100','Chicken stew (150 g) + phulka ×2|c150','Grilled chicken (150 g) + salad|c150','Egg curry (2 eggs) + chapati ×2|e2','Fish tawa fry (150 g) + salad|f150','Egg dosa ×2 + chutney|e2,b','Fish curry (150 g) + chapati ×1|f150','Boiled eggs ×2 + veg stir fry|e2','Omelette (2 eggs) + chapati ×2|e2','Chicken pepper soup + sprout salad|c100','Egg bhurji (2 eggs) + phulka ×2|e2','Prawn stir-fry (150 g) + salad|f150'];
+var POOL={b:P(Z(BV,BN)),m:P(MV),l:P(Z(LV,LN)),e:P(Z(EV,EN)),d:P(Z(DV,DN))};
+var SL=['b','m','l','e','d'],ALL=['b','m','l','e','d','w'];
+var LAB={b:'Breakfast',m:'Mid-morning',l:'Lunch',e:'Evening snack',d:'Dinner',w:'Water'};
+var STAP=[['Mixed vegetables (beans, cabbage, carrot, beetroot, okra, brinjal)',3,'kg'],['Leafy greens (keerai / palak)',500,'g'],['Onion',750,'g'],['Tomato',750,'g'],['Fruits (as per plan)',7,'pcs'],['Curd',1,'kg'],['Toor dal',250,'g'],['Moong dal',200,'g'],['Chana / sundal legumes',250,'g'],['Brown rice / millets',500,'g'],['Wheat flour (phulka / chapati)',500,'g'],['Ragi flour',250,'g'],['Rava (semolina) + oats',400,'g'],['Peanuts',100,'g'],['Coconut',2,'pcs'],['Gingelly / coconut oil',150,'ml'],['Green chilli, ginger, garlic',150,'g'],['Curry leaves, coriander, mint',1,'bunch each'],['Lemon',4,'pcs']];
+var KEY='dietTracker.v2',today=iso(new Date());
+var def={start:today,startW:77,goalW:70,days:50,log:{},groc:{}};
+var S;try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(!S||!S.log){S=JSON.parse(JSON.stringify(def));try{var o=JSON.parse(localStorage.getItem('dietTracker.v1'));if(o){['start','startW','goalW','days'].forEach(function(k){S[k]=o[k]});Object.keys(o.log||{}).forEach(function(d){if(o.log[d].weight)S.log[d]={done:{},weight:o.log[d].weight}})}}catch(e){}}
+S.groc=S.groc||{};
+var SB=null,user=null,syncMsg='',pt=null;
+try{if(window.supabase&&window.SUPABASE_URL&&window.SUPABASE_URL.indexOf('YOUR')<0)SB=supabase.createClient(window.SUPABASE_URL,window.SUPABASE_KEY)}catch(e){}
+var local=function(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+var save=function(){S.ts=Date.now();local();push()};
+function push(){if(!SB||!user)return;clearTimeout(pt);pt=setTimeout(function(){SB.from('diet_state').upsert({user_id:user.id,data:S,updated_at:new Date().toISOString()}).then(function(r){syncMsg=r.error?'Sync error: '+r.error.message:'Synced at '+new Date().toLocaleTimeString();if(tab=='progress')render()})},800)}
+function pull(){SB.from('diet_state').select('data').eq('user_id',user.id).maybeSingle().then(function(r){
+  if(r.error){syncMsg='Sync error: '+r.error.message}
+  else if(r.data&&r.data.data&&(r.data.data.ts||0)>(S.ts||0)){S=r.data.data;S.groc=S.groc||{};local();syncMsg='Loaded from cloud'}
+  else{syncMsg='Up to date';push()}
+  render()})}
+function authGo(up){var e=document.getElementById('em').value.trim(),p=document.getElementById('pw').value;if(!e||p.length<6){alert('Enter email and a password of at least 6 characters');return}
+  (up?SB.auth.signUp({email:e,password:p}):SB.auth.signInWithPassword({email:e,password:p})).then(function(r){if(r.error)alert(r.error.message);else if(up&&!r.data.session)alert('Check your email to confirm your account, then sign in.')})}
+function signOut(){SB.auth.signOut()}
+function cloudCard(){var h='<div class="card"><h2>Cloud backup (Supabase)</h2>';
+  if(!SB)return h+'<div class="mut">Not configured. Add your Supabase URL and key in config.js.</div></div>';
+  if(user)return h+'<div>Signed in as <b>'+esc(user.email)+'</b></div><div class="tip">'+esc(syncMsg)+'</div><div class="row" style="margin-top:10px"><button class="btn alt" onclick="pull()">Sync now</button><button class="btn alt" onclick="signOut()">Sign out</button></div></div>';
+  return h+'<input type="text" id="em" inputmode="email" autocapitalize="none" placeholder="Email"><div style="height:8px"></div><input type="text" id="pw" placeholder="Password (min 6 characters)"><div class="row" style="margin-top:10px"><button class="btn" onclick="authGo(0)">Sign in</button><button class="btn alt" onclick="authGo(1)">Create account</button></div><div class="tip">Your data stays on this phone even if you do not sign in.</div></div>'}
+var tab='today',view=today,wk=0,PL=[];
+function build(){var pl=[],cur={b:0,m:0,l:0,e:0,d:0},h={b:[],m:[],l:[],e:[],d:[]};
+for(var i=0;i<S.days;i++){var date=addDays(S.start,i),dw=parse(date).getDay(),veg=dw==4||dw==6,day={date:date,veg:veg,m:{}};
+SL.forEach(function(s){var pool=POOL[s],L=pool.length,pick=null,k;
+for(k=0;k<L;k++){var it=pool[(cur[s]+k)%L];if((!veg||it.v)&&h[s].slice(-9).indexOf(it.n)<0){pick=it;break}}
+if(!pick){k=0;pick=pool[cur[s]%L]}
+cur[s]=(cur[s]+k+1)%L;h[s].push(pick.n);day.m[s]=pick});pl.push(day)}return pl}
+var entry=function(d){return S.log[d]||(S.log[d]={done:{}})};
+var weights=function(){var a=[{d:S.start,w:S.startW}];Object.keys(S.log).sort().forEach(function(d){var w=S.log[d].weight;if(w&&d>S.start)a.push({d:d,w:w})});return a};
+var curW=function(){var w=weights();return w[w.length-1].w};
+var dayOf=function(d){return PL[diff(d,S.start)]};
+
+function todayView(){
+  var e=S.log[view]||{done:{}},dy=dayOf(view),day=diff(view,S.start)+1;
+  var c=ALL.filter(function(k){return e.done[k]}).length,n=ALL.length,pct=Math.round(c/n*100);
+  var label=day<1?'Before start':day>S.days?'Plan complete':'Day '+day+' of '+S.days;
+  var R=34,C=2*Math.PI*R;
+  var h='<h1>'+(view===today?'Today':fd(view,{weekday:'long'}))+'</h1><div class="mut">'+fd(view,{day:'numeric',month:'short',year:'numeric'})+' · '+label+(dy&&dy.veg?' · <span class="badge">🌿 Strict veg day</span>':'')+'</div><div style="height:12px"></div>';
+  h+='<div class="nav"><button onclick="go(-1)">‹</button><div class="row" style="gap:14px"><svg width="84" height="84" viewBox="0 0 84 84"><circle cx="42" cy="42" r="'+R+'" fill="none" stroke="var(--bd)" stroke-width="8"/><circle cx="42" cy="42" r="'+R+'" fill="none" stroke="var(--ac)" stroke-width="8" stroke-linecap="round" stroke-dasharray="'+C+'" stroke-dashoffset="'+(C*(1-pct/100))+'" transform="rotate(-90 42 42)"/><text x="42" y="47" text-anchor="middle" style="font-size:16px;font-weight:700;fill:var(--tx)">'+pct+'%</text></svg><div><b>'+c+' / '+n+'</b><div class="mut">followed today</div></div></div><button onclick="go(1)">›</button></div>';
+  if(dy){h+='<div class="card"><h2>Food chart</h2>';
+    ALL.forEach(function(k){var on=e.done[k],nm=k=='w'?'2.5–3 litres through the day':dy.m[k].n;h+='<div class="meal'+(on?' on':'')+'" onclick="tog(\''+k+'\')"><div class="chk">'+(on?'✓':'')+'</div><div><div class="mut">'+LAB[k]+'</div><div class="nm">'+esc(nm)+'</div></div></div>'});
+    if(SL.some(function(k){return dy.m[k].b}))h+='<div class="tip">🥣 Today uses idli/dosa/uthappam batter. Check the Batter tab for exact steps.</div>';
+    h+='</div>'}else h+='<div class="card mut">No meal plan for this date. Use the arrows to go to a plan day.</div>';
+  h+='<div class="card"><h2>Weight</h2><div class="row"><input type="number" id="w" step="0.1" inputmode="decimal" placeholder="kg" value="'+(e.weight||'')+'"><button class="btn" onclick="saveW()">Save</button></div><div class="tip">Weigh at the same time each morning, after the toilet and before eating.</div></div>';
+  return h}
+function go(n){view=addDays(view,n);render()}
+function tog(k){var e=entry(view);e.done[k]=!e.done[k];save();render()}
+function saveW(){var v=parseFloat(document.getElementById('w').value),e=entry(view);if(v>20&&v<300)e.weight=v;else delete e.weight;save();render()}
+
+function planView(){var h='<h1>50-day plan</h1><div class="mut">Thu and Sat are strictly vegetarian (no egg). Same dish never repeats within 10 days in a meal slot. Tap a day to open it.</div><div style="height:12px"></div><div class="card">';
+  PL.forEach(function(d,i){h+='<div class="pd'+(d.date===today?' cur':'')+'" onclick="view=\''+d.date+'\';tab=\'today\';render();scrollTo(0,0)"><b>Day '+(i+1)+' · '+fd(d.date,{weekday:'short',day:'numeric',month:'short'})+'</b> '+(d.veg?'<span class="badge">🌿 veg</span>':'')+'<div class="mut">'+SL.map(function(k){return '<b>'+LAB[k].split(' ')[0]+':</b> '+esc(d.m[k].n)}).join('<br>')+'</div></div>'});
+  return h+'</div>'}
+
+function shopView(){var nw=Math.ceil(S.days/7);wk=Math.max(0,Math.min(nw-1,wk));var ds=PL.slice(wk*7,wk*7+7);
+  var t={c:0,f:0,e:0,p:0,b:0};ds.forEach(function(d){SL.forEach(function(k){var m=d.m[k];t.c+=m.c;t.f+=m.f;t.e+=m.e;t.p+=m.p;t.b+=m.b})});
+  var batches=Math.ceil(t.b/5),sc=ds.length/7,r5=function(x){return (Math.ceil(x*20)/20).toFixed(2)};
+  var items=[['Chicken (boneless, cleaned)',r5(t.c/1000),'kg'],['Fish / prawn (cleaned)',r5(t.f/1000),'kg'],['Eggs',t.e,'pcs'],['Paneer',t.p,'g'],['Idli rice (parboiled)',batches*400,'g'],['Whole urad dal',batches*150,'g'],['Methi seeds + thick poha',batches?'1 tsp + 4 tbsp':'-',''],];
+  var staples=STAP.map(function(s){return [s[0],typeof s[1]=='number'&&s[1]>1?Math.round(s[1]*sc):s[1],s[2]]});
+  var line=function(a,sec){var k=wk+'|'+a[0],on=S.groc[k];return '<div class="g'+(on?' on':'')+'" onclick="gt(\''+k.replace(/'/g,'')+'\')"><span>'+(on?'☑ ':'☐ ')+esc(a[0])+'</span><b style="white-space:nowrap">'+a[1]+' '+a[2]+'</b></div>'};
+  var h='<h1>Weekly groceries</h1><div class="nav"><button onclick="wk--;render()">‹</button><div style="text-align:center"><b>Week '+(wk+1)+' of '+nw+'</b><div class="mut">Days '+(wk*7+1)+'–'+(wk*7+ds.length)+' · '+fd(ds[0].date,{day:'numeric',month:'short'})+' to '+fd(ds[ds.length-1].date,{day:'numeric',month:'short'})+'</div></div><button onclick="wk++;render()">›</button></div>';
+  h+='<div class="card"><h2>Protein &amp; batter (from this week’s plan)</h2>'+items.filter(function(i){return i[1]!==0&&i[1]!=='0.00'&&i[1]!=='-'}).map(line).join('')+'<div class="tip">Batter: '+t.b+' idli/dosa/uthappam meals → '+batches+' batch(es). 1 batch lasts about 5 days in the fridge.</div></div>';
+  h+='<div class="card"><h2>Staples (1 person, estimate)</h2>'+staples.map(line).join('')+'</div>';return h}
+function gt(k){S.groc[k]=!S.groc[k];save();render()}
+
+function batterView(){return '<h1>Batter guide</h1><div class="mut">One batch ≈ 4½ cups batter: about 16 idlis, or 10–12 dosas, or 5 uthappam servings. Keeps about 5 days in the fridge.</div><div style="height:12px"></div>'+
+'<div class="card"><h2>Ingredients (1 batch)</h2><ul><li>2 cups (400 g) idli rice, parboiled</li><li>¾ cup (150 g) whole or skinned urad dal</li><li>½ tsp fenugreek (methi) seeds</li><li>2 tbsp thick poha</li><li>1½ tsp (9 g) non-iodised salt</li></ul></div>'+
+'<div class="card"><h2>Steps</h2><ol><li>Wash rice 3 times. Soak in 3 cups water for 5 hours (minimum 4).</li><li>Wash urad dal and methi 3 times. Soak in 1½ cups water for 4 hours. Soak poha in ¼ cup water for the last 20 minutes.</li><li>Drain dal, methi and poha. Grind with ¾ cup cold water (add up to 1 cup, 2 tbsp at a time) for 20–25 minutes until light and fluffy. Move to a large vessel.</li><li>Drain rice. Grind with ¾ cup water (up to 1¼ cups) for about 10 minutes to a fine, slightly grainy rava texture.</li><li>Add the rice batter and salt to the dal batter. Mix by hand for 2 minutes.</li><li>Fill the vessel only halfway, cover loosely, and ferment 8–12 hours in a warm spot until doubled with bubbles. In cold weather, keep it in the oven with the light on.</li><li>Stir gently once, then refrigerate.</li></ol></div>'+
+'<div class="card"><h2>Idli (3 per serving)</h2><ul><li>Grease the plates. Fill each mould with ¼ cup (60 ml) batter.</li><li>Steam 10–12 minutes on medium-high heat.</li><li>Rest 2 minutes before removing.</li></ul></div>'+
+'<div class="card"><h2>Dosa (2 per serving)</h2><ul><li>Take 1 cup batter, add 2–3 tbsp water to a flowing consistency.</li><li>Heat the tawa on medium-high. A sprinkle of water should sizzle away at once.</li><li>Pour ⅓ cup (80 ml) batter, spread into a thin circle, drizzle ½ tsp oil around the edge.</li><li>Cook 1–1½ minutes until golden. No need to flip.</li></ul></div>'+
+'<div class="card"><h2>Uthappam (2 per serving)</h2><ul><li>Do not thin the batter; use it thick as it is.</li><li>Tawa on medium heat. Pour ½ cup (120 ml) batter and spread to about 12 cm, 1 cm thick.</li><li>Top with 1 tbsp chopped onion, 1 tbsp chopped tomato, 1 tsp chopped green chilli and coriander. Press lightly, add ½ tsp oil on top.</li><li>Cover and cook 2–3 minutes, flip, cook 2 minutes more.</li></ul></div>'}
+
+function progressView(){
+  var w=weights(),cur=curW(),lost=S.startW-cur,total=S.startW-S.goalW;
+  var el=Math.max(0,Math.min(S.days,diff(today,S.start)+1)),left=Math.max(0,S.days-el);
+  var perWk=left>0?Math.max(0,(cur-S.goalW)/left*7):0;
+  var full=0;for(var i=0;i<el;i++){var l=S.log[addDays(S.start,i)];if(l&&ALL.every(function(k){return l.done[k]}))full++}
+  var W=320,H=190,pl=30,pr=8,pt=10,pb=22,ws=w.map(function(x){return x.w});
+  var lo=Math.floor(Math.min(S.goalW,Math.min.apply(null,ws))-1),hi=Math.ceil(Math.max(S.startW,Math.max.apply(null,ws))+1);
+  var X=function(d){return pl+d/S.days*(W-pl-pr)},Y=function(v){return pt+(hi-v)/(hi-lo)*(H-pt-pb)},dx=function(x){return Math.min(S.days,Math.max(0,diff(x.d,S.start)))};
+  var s='<svg viewBox="0 0 '+W+' '+H+'" width="100%">';
+  for(var g=lo;g<=hi;g+=Math.max(1,Math.ceil((hi-lo)/5)))s+='<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+Y(g)+'" y2="'+Y(g)+'" stroke="var(--bd)"/><text x="2" y="'+(Y(g)+3)+'">'+g+'</text>';
+  [0,10,20,30,40,50].filter(function(d){return d<=S.days}).forEach(function(d){s+='<text x="'+X(d)+'" y="'+(H-6)+'" text-anchor="middle">'+d+'</text>'});
+  s+='<line x1="'+X(0)+'" y1="'+Y(S.startW)+'" x2="'+X(S.days)+'" y2="'+Y(S.goalW)+'" stroke="var(--mut)" stroke-dasharray="4 4"/><polyline points="'+w.map(function(x){return X(dx(x))+','+Y(x.w)}).join(' ')+'" fill="none" stroke="var(--ac)" stroke-width="2.5" stroke-linejoin="round"/>';
+  w.forEach(function(x){s+='<circle cx="'+X(dx(x))+'" cy="'+Y(x.w)+'" r="3.5" fill="var(--ac)"/>'});s+='</svg>';
+  var pc=Math.max(0,Math.min(100,lost/total*100));
+  var h='<h1>Progress</h1><div class="mut">Goal: '+S.startW+' → '+S.goalW+' kg in '+S.days+' days</div><div style="height:12px"></div>';
+  h+='<div class="grid" style="margin-bottom:14px"><div class="stat"><b>'+cur.toFixed(1)+' kg</b><span class="mut">Current</span></div><div class="stat"><b>'+(lost>=0?'−':'+')+Math.abs(lost).toFixed(1)+' kg</b><span class="mut">Change so far</span></div><div class="stat"><b>'+Math.max(0,cur-S.goalW).toFixed(1)+' kg</b><span class="mut">To go</span></div><div class="stat"><b>'+left+'</b><span class="mut">Days left</span></div></div>';
+  h+='<div class="card"><div class="row sp"><b>Goal progress</b><span class="mut">'+Math.round(pc)+'%</span></div><div class="bar"><i style="width:'+pc+'%"></i></div></div>';
+  h+='<div class="card"><h2>Weight chart (by day)</h2>'+s+'<div class="mut">Solid: your weight · Dashed: target path</div></div>';
+  h+='<div class="card"><h2>Consistency</h2><b>'+full+' of '+el+' days</b> <span class="mut">fully on plan</span><div class="tip">'+(left>0?'You need about '+perWk.toFixed(2)+' kg/week from here. '+(perWk>1?'That is faster than the usual safe 0.5–1 kg/week, so consider extending the timeline.':'That is within the usual safe pace of 0.5–1 kg/week.'):'')+'</div></div>';
+  h+=cloudCard();
+  h+='<div class="card"><h2>Goal settings</h2><label class="lab">Start date (Day 1)</label><input type="date" value="'+S.start+'" onchange="S.start=this.value||S.start;save();render()"><div class="grid"><div><label class="lab">Start weight (kg)</label><input type="number" step="0.1" value="'+S.startW+'" onchange="S.startW=+this.value||S.startW;save();render()"></div><div><label class="lab">Target (kg)</label><input type="number" step="0.1" value="'+S.goalW+'" onchange="S.goalW=+this.value||S.goalW;save();render()"></div></div><label class="lab">Days</label><input type="number" value="'+S.days+'" onchange="S.days=Math.min(120,Math.max(7,+this.value||S.days));save();render()"><div style="height:12px"></div><button class="btn alt" onclick="resetAll()">Reset all data</button><div class="tip">Data is saved on this device only. Changing the start date rebuilds the plan so Thu and Sat stay vegetarian.</div></div>';
+  return h}
+function resetAll(){if(confirm('Delete all data and start over?')){S=JSON.parse(JSON.stringify(def));save();render()}}
+
+function render(){PL=build();
+  var v={today:todayView,plan:planView,shop:shopView,batter:batterView,progress:progressView};
+  document.getElementById('app').innerHTML=v[tab]();
+  document.getElementById('tabs').innerHTML=[['today','🍽️','Today'],['plan','📅','Plan'],['shop','🛒','Groceries'],['batter','🥣','Batter'],['progress','📈','Progress']].map(function(t){return '<button class="'+(tab===t[0]?'on':'')+'" onclick="tab=\''+t[0]+'\';render();scrollTo(0,0)"><span>'+t[1]+'</span>'+t[2]+'</button>'}).join('')}
+render();
+if(SB){SB.auth.onAuthStateChange(function(ev,sess){user=sess?sess.user:null;setTimeout(function(){if(user)pull();else render()},0)})}
+if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}
+</script>
+</body>
+</html>
